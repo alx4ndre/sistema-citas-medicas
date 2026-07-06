@@ -230,3 +230,253 @@ int guardarCitas(const Cita citas[], int total) {
     fclose(archivo);
     return 1;
 }
+
+/* ==================== 4. Operaciones CRUD ==================== */
+/* Responsable: Juan Yepes */
+
+void imprimirEncabezado(void) {
+    printf("%-12s %-20s %-15s %-11s %-6s %-20s\n",
+           "Codigo", "Paciente", "Especialidad", "Fecha", "Hora", "Medico");
+    printf("--------------------------------------------------------------------------------------\n");
+}
+
+void imprimirFila(const Cita *c) {
+    printf("%-12s %-20s %-15s %-11s %-6s %-20s\n",
+           c->codigo_cita, c->nombre_paciente, c->especialidad,
+           c->fecha, c->hora, c->medico);
+}
+
+/* Lee una linea desde teclado y le quita el salto de linea final. */
+void leerTexto(char *destino, int tam) {
+    if (fgets(destino, tam, stdin) == NULL) {
+        destino[0] = '\0';
+        return;
+    }
+    limpiarEspacios(destino);
+}
+
+int buscarIndicePorCodigo(const Cita citas[], int total, const char *codigo) {
+    int i;
+    for (i = 0; i < total; i++) {
+        if (iguales(citas[i].codigo_cita, codigo)) return i;
+    }
+    return -1;
+}
+
+void registrarCita(Cita citas[], int *total) {
+    Cita nueva;
+    char buffer[LEN_LINEA];
+
+    if (*total >= MAX_CITAS) {
+        printf("\nCapacidad maxima alcanzada (%d citas).\n", MAX_CITAS);
+        return;
+    }
+
+    printf("\n--- Registrar nueva cita ---\n");
+
+    while (1) {
+        printf("Codigo (alfanumerico, 1-15, sin espacios): ");
+        leerTexto(buffer, LEN_LINEA);
+        if (!validarFormatoCodigo(buffer)) {
+            printf("Error: codigo invalido. Intente nuevamente.\n");
+            continue;
+        }
+        if (existeCodigo(citas, *total, buffer)) {
+            printf("Error: ya existe una cita con ese codigo.\n");
+            continue;
+        }
+        copiar(nueva.codigo_cita, buffer, LEN_CODIGO);
+        break;
+    }
+
+    printf("Nombre del paciente: ");
+    leerTexto(buffer, LEN_LINEA);
+    copiar(nueva.nombre_paciente, buffer, LEN_NOMBRE);
+
+    printf("Especialidad: ");
+    leerTexto(buffer, LEN_LINEA);
+    copiar(nueva.especialidad, buffer, LEN_ESPECIALIDAD);
+
+    while (1) {
+        printf("Fecha (DD/MM/AAAA): ");
+        leerTexto(buffer, LEN_LINEA);
+        if (!validarFormatoFecha(buffer)) {
+            printf("Error: formato de fecha invalido.\n");
+            continue;
+        }
+        copiar(nueva.fecha, buffer, LEN_FECHA);
+        break;
+    }
+
+    while (1) {
+        printf("Hora (HH:MM, 24h): ");
+        leerTexto(buffer, LEN_LINEA);
+        if (!validarFormatoHora(buffer)) {
+            printf("Error: formato de hora invalido.\n");
+            continue;
+        }
+        if (horarioOcupado(citas, *total, nueva.fecha, buffer, "")) {
+            printf("Error: ya hay una cita en esa fecha y hora.\n");
+            continue;
+        }
+        copiar(nueva.hora, buffer, LEN_HORA);
+        break;
+    }
+
+    printf("Medico: ");
+    leerTexto(buffer, LEN_LINEA);
+    copiar(nueva.medico, buffer, LEN_MEDICO);
+
+    citas[*total] = nueva;
+    (*total)++;
+    printf("Cita registrada correctamente (codigo %s).\n", nueva.codigo_cita);
+}
+
+void listarCitas(const Cita citas[], int total) {
+    int i;
+    if (total == 0) {
+        printf("\nNo hay citas registradas.\n");
+        return;
+    }
+    printf("\n--- Listado de citas (%d) ---\n", total);
+    imprimirEncabezado();
+    for (i = 0; i < total; i++) {
+        imprimirFila(&citas[i]);
+    }
+}
+
+void buscarCita(const Cita citas[], int total) {
+    char buffer[LEN_LINEA];
+    int i, encontrados = 0;
+
+    if (total == 0) {
+        printf("\nNo hay citas registradas.\n");
+        return;
+    }
+
+    printf("\n--- Buscar cita ---\n");
+    printf("Codigo exacto o parte del nombre del paciente: ");
+    leerTexto(buffer, LEN_LINEA);
+
+    for (i = 0; i < total; i++) {
+        int porCodigo = iguales(citas[i].codigo_cita, buffer);
+        int porNombre = contieneSubcadena(citas[i].nombre_paciente, buffer);
+        if (porCodigo || porNombre) {
+            if (encontrados == 0) imprimirEncabezado();
+            imprimirFila(&citas[i]);
+            encontrados++;
+        }
+    }
+
+    if (encontrados == 0) {
+        printf("No se encontraron citas con ese criterio.\n");
+    } else {
+        printf("Coincidencias encontradas: %d\n", encontrados);
+    }
+}
+
+void actualizarCita(Cita citas[], int total) {
+    char buffer[LEN_LINEA];
+    Cita temp;
+    int idx;
+
+    if (total == 0) {
+        printf("\nNo hay citas registradas.\n");
+        return;
+    }
+
+    printf("\n--- Actualizar cita ---\n");
+    printf("Codigo de la cita a actualizar: ");
+    leerTexto(buffer, LEN_LINEA);
+
+    idx = buscarIndicePorCodigo(citas, total, buffer);
+    if (idx == -1) {
+        printf("No existe una cita con ese codigo.\n");
+        return;
+    }
+
+    temp = citas[idx]; /* se edita una copia; se aplica solo si es valida */
+    printf("Cita actual: ");
+    imprimirFila(&temp);
+    printf("Enter sin escribir para mantener el valor actual.\n");
+
+    printf("Nuevo nombre [%s]: ", temp.nombre_paciente);
+    leerTexto(buffer, LEN_LINEA);
+    if (buffer[0] != '\0') copiar(temp.nombre_paciente, buffer, LEN_NOMBRE);
+
+    printf("Nueva especialidad [%s]: ", temp.especialidad);
+    leerTexto(buffer, LEN_LINEA);
+    if (buffer[0] != '\0') copiar(temp.especialidad, buffer, LEN_ESPECIALIDAD);
+
+    while (1) {
+        printf("Nueva fecha (DD/MM/AAAA) [%s]: ", temp.fecha);
+        leerTexto(buffer, LEN_LINEA);
+        if (buffer[0] == '\0') break;
+        if (!validarFormatoFecha(buffer)) {
+            printf("Error: formato invalido.\n");
+            continue;
+        }
+        copiar(temp.fecha, buffer, LEN_FECHA);
+        break;
+    }
+
+    while (1) {
+        printf("Nueva hora (HH:MM) [%s]: ", temp.hora);
+        leerTexto(buffer, LEN_LINEA);
+        if (buffer[0] == '\0') break;
+        if (!validarFormatoHora(buffer)) {
+            printf("Error: formato invalido.\n");
+            continue;
+        }
+        copiar(temp.hora, buffer, LEN_HORA);
+        break;
+    }
+
+    printf("Nuevo medico [%s]: ", temp.medico);
+    leerTexto(buffer, LEN_LINEA);
+    if (buffer[0] != '\0') copiar(temp.medico, buffer, LEN_MEDICO);
+
+    if (horarioOcupado(citas, total, temp.fecha, temp.hora, temp.codigo_cita)) {
+        printf("Error: la fecha y hora ya estan ocupadas por otra cita.\n");
+        printf("No se aplicaron los cambios.\n");
+        return;
+    }
+
+    citas[idx] = temp;
+    printf("Cita actualizada correctamente.\n");
+}
+
+void eliminarCita(Cita citas[], int *total) {
+    char buffer[LEN_LINEA];
+    int idx, i;
+
+    if (*total == 0) {
+        printf("\nNo hay citas registradas.\n");
+        return;
+    }
+
+    printf("\n--- Eliminar cita ---\n");
+    printf("Codigo de la cita a eliminar: ");
+    leerTexto(buffer, LEN_LINEA);
+
+    idx = buscarIndicePorCodigo(citas, *total, buffer);
+    if (idx == -1) {
+        printf("No existe una cita con ese codigo.\n");
+        return;
+    }
+
+    printf("Cita encontrada: ");
+    imprimirFila(&citas[idx]);
+    printf("Confirma la eliminacion? (S/N): ");
+    leerTexto(buffer, LEN_LINEA);
+
+    if (buffer[0] == 'S' || buffer[0] == 's') {
+        for (i = idx; i < *total - 1; i++) {
+            citas[i] = citas[i + 1];
+        }
+        (*total)--;
+        printf("Cita eliminada correctamente.\n");
+    } else {
+        printf("Operacion cancelada.\n");
+    }
+}
