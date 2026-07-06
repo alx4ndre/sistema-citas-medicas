@@ -480,3 +480,78 @@ void eliminarCita(Cita citas[], int *total) {
         printf("Operacion cancelada.\n");
     }
 }
+
+/* ==================== 5. Menu y punto de entrada ==================== */
+/* Responsable: Juan Yepes */
+
+void mostrarMenu(void) {
+    printf("\n===== Sistema de Agendamiento de Citas Medicas =====\n");
+    printf("1. Registrar cita\n");
+    printf("2. Listar citas\n");
+    printf("3. Buscar cita\n");
+    printf("4. Actualizar cita\n");
+    printf("5. Eliminar cita\n");
+    printf("6. Guardar cambios en archivo\n");
+    printf("0. Salir\n");
+    printf("Seleccione una opcion: ");
+}
+
+/* Lee la opcion del menu usando el primer caracter de la linea. */
+int leerOpcion(void) {
+    char buffer[LEN_LINEA];
+    if (fgets(buffer, LEN_LINEA, stdin) == NULL) {
+        return 0; /* fin de entrada: salir de forma segura */
+    }
+    limpiarEspacios(buffer);
+    if (buffer[0] >= '0' && buffer[0] <= '9' && buffer[1] == '\0') {
+        return buffer[0] - '0';
+    }
+    return -1; /* opcion invalida */
+}
+
+void ejecutarMenu(Cita citas[], int *total) {
+    int opcion;
+
+    do {
+        mostrarMenu();
+        opcion = leerOpcion();
+
+        switch (opcion) {
+            case 1: registrarCita(citas, total); break;
+            case 2: listarCitas(citas, *total); break;
+            case 3: buscarCita(citas, *total); break;
+            case 4: actualizarCita(citas, *total); break;
+            case 5: eliminarCita(citas, total); break;
+            case 6:
+                if (guardarCitas(citas, *total)) {
+                    printf("Cambios guardados en %s.\n", ARCHIVO_CITAS);
+                } else {
+                    printf("Error: no se pudo guardar el archivo.\n");
+                }
+                break;
+            case 0:
+                if (guardarCitas(citas, *total)) {
+                    printf("\nGuardado automatico en %s. Hasta pronto.\n", ARCHIVO_CITAS);
+                } else {
+                    printf("\nAdvertencia: no se pudo guardar al salir.\n");
+                }
+                break;
+            default:
+                printf("Opcion invalida. Intente nuevamente.\n");
+        }
+    } while (opcion != 0);
+}
+
+int main(void) {
+    Cita citas[MAX_CITAS];
+    int total = 0;
+
+    if (cargarCitas(citas, &total)) {
+        printf("Se cargaron %d cita(s) desde %s.\n", total, ARCHIVO_CITAS);
+    } else {
+        printf("No se encontro %s. Se inicia con una lista vacia.\n", ARCHIVO_CITAS);
+    }
+
+    ejecutarMenu(citas, &total);
+    return 0;
+}
