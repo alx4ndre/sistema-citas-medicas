@@ -154,3 +154,79 @@ int horarioOcupado(const Cita citas[], int total, const char *fecha,
     }
     return 0;
 }
+
+/* ==================== 3. Persistencia en archivo CSV ==================== */
+/* Responsable: Mateo Mero */
+
+/* Lee el campo separado por comas que empieza en linea[*pos] y lo copia
+ * en destino (maximo tam-1 caracteres). Avanza *pos tras la coma. */
+void leerCampo(const char *linea, int *pos, char *destino, int tam) {
+    int i = 0;
+    while (linea[*pos] != '\0' && linea[*pos] != ',') {
+        if (i < tam - 1) {
+            destino[i] = linea[*pos];
+            i++;
+        }
+        (*pos)++;
+    }
+    destino[i] = '\0';
+    if (linea[*pos] == ',') {
+        (*pos)++;
+    }
+}
+
+/* Carga las citas desde el archivo CSV. Devuelve 1 si existe, 0 si no. */
+int cargarCitas(Cita citas[], int *total) {
+    FILE *archivo = fopen(ARCHIVO_CITAS, "r");
+    char linea[LEN_LINEA];
+    int esCabecera = 1;
+    int pos;
+    Cita c;
+
+    *total = 0;
+    if (archivo == NULL) {
+        return 0; /* aun no existe el archivo: no es un error fatal */
+    }
+
+    while (fgets(linea, LEN_LINEA, archivo) != NULL && *total < MAX_CITAS) {
+        limpiarEspacios(linea);
+        if (linea[0] == '\0') continue;               /* ignorar vacias */
+        if (esCabecera) { esCabecera = 0; continue; } /* saltar cabecera */
+
+        pos = 0;
+        leerCampo(linea, &pos, c.codigo_cita, LEN_CODIGO);
+        leerCampo(linea, &pos, c.nombre_paciente, LEN_NOMBRE);
+        leerCampo(linea, &pos, c.especialidad, LEN_ESPECIALIDAD);
+        leerCampo(linea, &pos, c.fecha, LEN_FECHA);
+        leerCampo(linea, &pos, c.hora, LEN_HORA);
+        leerCampo(linea, &pos, c.medico, LEN_MEDICO);
+
+        if (c.codigo_cita[0] != '\0') {
+            citas[*total] = c;
+            (*total)++;
+        }
+    }
+
+    fclose(archivo);
+    return 1;
+}
+
+/* Guarda todas las citas en el archivo CSV. Devuelve 1 si tuvo exito. */
+int guardarCitas(const Cita citas[], int total) {
+    FILE *archivo = fopen(ARCHIVO_CITAS, "w");
+    int i;
+    if (archivo == NULL) {
+        return 0;
+    }
+
+    fprintf(archivo, "codigo_cita,nombre_paciente,especialidad,fecha,hora,medico\n");
+    for (i = 0; i < total; i++) {
+        fprintf(archivo, "%s,%s,%s,%s,%s,%s\n",
+                citas[i].codigo_cita, citas[i].nombre_paciente,
+                citas[i].especialidad, citas[i].fecha,
+                citas[i].hora, citas[i].medico);
+    }
+
+    fclose(archivo);
+    return 1;
+}
